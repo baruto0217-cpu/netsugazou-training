@@ -91,6 +91,7 @@
   .card:active { transform: scale(.97); }
   .card .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .chip { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; }
+  .card .temps { font-size: 12px; font-weight: 700; color: var(--sub); font-family: ui-monospace, Menlo, monospace; }
   .card h3 { font-size: 18px; font-weight: 800; margin-top: 8px; }
   .card p { font-size: 13px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
   .card .bar { height: 6px; border-radius: 3px; margin-top: 10px; }
@@ -129,7 +130,7 @@
 
   .monitor {
     position: relative; margin-top: 10px;
-    flex: 1 0 auto; min-height: 340px; height: 48dvh;
+    flex: 1 0 auto; min-height: 360px; height: 64dvh;
     border-radius: 18px; overflow: hidden;
     background: #000; border: 2px solid #2a3550;
   }
@@ -157,17 +158,6 @@
   .manual { display: none; margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: #11182a; border: 1px solid #2a3550; font-size: 13px; }
   .manual.show { display: block; }
 
-  .qa { margin-top: 12px; padding: 14px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); }
-  .qa .head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-  .qa .head span:first-child { font-size: 14px; font-weight: 800; color: var(--cyan); }
-  .question { font-size: 15px; line-height: 1.7; margin-top: 10px; }
-  .answer { display: none; margin-top: 12px; }
-  .answer.show { display: block; }
-  .answer h4 { font-size: 14px; color: var(--accent); margin: 10px 0 4px; }
-  .answer p, .answer li { font-size: 14px; line-height: 1.7; color: #e3e7f0; }
-  .answer ul { padding-left: 1.2em; }
-  .answer li { margin-bottom: 2px; }
-  .answer .note { font-size: 12px; color: var(--sub); margin-top: 12px; line-height: 1.6; }
 
   /* ===== 注意事項 ===== */
   .sheet { position: absolute; inset: 0; z-index: 5; background: rgba(0,0,0,.6); display: none; align-items: flex-end; }
@@ -261,18 +251,6 @@
       <input type="range" id="manualRange" min="-60" max="60" value="0" oninput="setManual()">
     </div>
 
-    <div class="qa">
-      <div class="head"><span>🔎 判読してみよう</span><span class="chip" id="risk">—</span></div>
-      <p class="question" id="question">—</p>
-      <button class="primary" id="ansBtn" style="margin-top:12px" onclick="showAnswer()">答えを見る</button>
-      <div class="answer" id="answer">
-        <h4>読み取れること</h4>
-        <p id="reading"></p>
-        <h4>取るべき行動</h4>
-        <ul id="actions"></ul>
-        <p class="note">※ 色の説明は「TIC風」配色のときのものです。このアプリでは、カメラ映像の明るさに、高さごとに設定した温度をかけ合わせて色を付けています。白い物・照明・窓は熱く、暗い物は冷たく見えます。数値は教育用の仮定値で、火災の段階や安全かどうかを判定する基準ではありません。</p>
-      </div>
-    </div>
   </section>
 
   <!-- ========== 注意事項シート ========== -->
@@ -298,67 +276,10 @@
 <script>
 // ===== 想定パターン =====
 const PATTERNS = [
-  {
-    title: "初期の火災",
-    sub: "熱が天井付近にたまり始めた",
-    desc: "天井付近だけが熱い。目線から下はまだ低温。",
-    top: 200, mid: 50, bot: 25,
-    risk: "熱は上部のみ", riskColor: "var(--low)",
-    question: "室内に進入してTICで見た画像です。熱い所はどの高さにありますか？この画像だけで進入・検索を決めてよいですか？",
-    reading: "天井付近だけが白く明るく、目線から下は暗い灰色（低温）に見えます。熱は天井付近にとどまっている想定です。ただし、低温に見えても、隠れた火点・有毒ガス・建物の危険は否定できません。",
-    actions: [
-      "熱の面では進入を検討できる見え方。ただし画像だけで決めない",
-      "進入するかは、隊長が建物・火災の状況、注水の態勢、空気残量、退路を合わせて判断する",
-      "進入・開口・注水など状況が変わる前後に、天井・周囲・床・退路を見直す",
-      "TICに頼りきらず、壁伝いの検索と隊員どうしの連携を続ける"
-    ]
-  },
-  {
-    title: "熱い層の降下",
-    sub: "熱が目線の高さまで下りてきた",
-    desc: "天井は色付き、目線の高さも明るい。床付近はまだ低温。",
-    top: 420, mid: 200, bot: 45,
-    risk: "熱が降下", riskColor: "var(--mid)",
-    question: "進入して数分後の画像です。パターン01と比べて何が変わりましたか？どう動きますか？",
-    reading: "天井付近に色（黄〜橙）が付き、目線の高さも白く明るくなっています。熱が強くなり、下の方まで広がってきている想定です。床付近はまだ低温に見えます。",
-    actions: [
-      "姿勢を低く保つ（立ち上がらない）",
-      "火災の規模と筒先の性能に合った注水で上部の熱を下げ、効果を確かめる",
-      "効果が足りない・熱が下がり続けるなら、活動の継続を見直し、退く判断を遅らせない",
-      "開けた扉など空気の入り口を意識し、退路を確認する",
-      "隊長へ状況を報告する"
-    ]
-  },
-  {
-    title: "部屋全体が高温",
-    sub: "急激な燃え広がりの危険",
-    desc: "天井から目線まで橙〜赤。床付近まで明るい。",
-    top: 620, mid: 480, bot: 220,
-    risk: "強い熱", riskColor: "var(--high)",
-    question: "室内の画像です。床付近まで明るくなっています。この部屋は今どんな状態だと考えますか？",
-    reading: "天井から目線の高さまで橙〜赤で、床付近まで明るくなっています。部屋全体が非常に熱い想定で、フラッシュオーバーを含む急激な燃え広がりを警戒すべき状態です。ただし、画像だけで「直前」や「すでに起きている」とは確定できません。",
-    actions: [
-      "進入しない。中にいるなら退避を最優先し、遅らせない",
-      "退避中の注水が必要かは、その場の状況と隊長の指示による",
-      "退避したことと室内の状況を無線で報告する",
-      "その後の注水や戦術の切り替えは隊長が判断する"
-    ]
-  },
-  {
-    title: "閉め切った部屋の扉",
-    sub: "換気不足の火災（バックドラフトの危険）",
-    desc: "扉の上部ほど熱い。開ける前の判断。",
-    top: 180, mid: 90, bot: 35,
-    risk: "開口に注意", riskColor: "var(--bd)",
-    question: "閉め切った部屋の扉を、廊下側からTICで見た画像です。扉の上部が熱くなっています。すぐに開けてよいですか？",
-    reading: "扉の上部ほど温度が高く見え、室内の上部に熱い煙がたまっている可能性があります。ただし、TICで見えるのは扉の表面の様子で、室内の状態は確定できません。扉の材質や断熱によっては、室内が危険でも扉は熱く見えないこともあります。",
-    actions: [
-      "不用意に開けない",
-      "危険を隊長へ報告し、扉への接近と開け方を統制してもらう",
-      "ほかの参考になる所見も確認する（隙間から煙が脈打つように出入りする、窓ガラスの内側が黒く汚れている、炎が見えない など）。これらがなくても危険は否定できない",
-      "開け方・冷却・換気の方法と隊員の配置は、所属の活動要領に従い隊長が決める"
-    ]
-  }
+  { title: "初期の火災", sub: "熱が天井付近にたまり始めた", desc: "天井付近だけが熱い。目線から下はまだ低温。", top: 200, mid: 50, bot: 25 },
+  { title: "熱い層の降下", sub: "熱が目線の高さまで下りてきた", desc: "天井は色付き、目線の高さも明るい。床付近はまだ低温。", top: 420, mid: 200, bot: 45 },
+  { title: "部屋全体が高温", sub: "急激な燃え広がりの危険", desc: "天井から目線まで橙〜赤。床付近まで明るい。", top: 620, mid: 480, bot: 220 },
+  { title: "閉め切った部屋の扉", sub: "扉の上部ほど熱い", desc: "廊下側から扉を見た想定。扉の上部ほど熱い。", top: 180, mid: 90, bot: 35 }
 ];
 
 // ===== 状態 =====
@@ -429,9 +350,9 @@ function onOrient(e) {
   tiltSeen = true;
   rawBeta = e.beta;
   if (baseBeta == null) baseBeta = e.beta;
-  // 背面カメラを上へ向ける（上端を手前に倒す）とβが増える → 天井側を見る
+  // 実機で確認した向き：背面カメラを上へ向けるとβが減る → 天井側（マイナス）を見る
   let d = (e.beta - baseBeta) / 90;
-  target = Math.max(-0.6, Math.min(0.6, -d));
+  target = Math.max(-0.6, Math.min(0.6, d));
 }
 function startOrient() {
   if (typeof DeviceOrientationEvent === "undefined") return Promise.resolve();
@@ -580,13 +501,6 @@ function updateHud(time) {
 function fillView() {
   document.getElementById("vTitle").textContent = cur.title;
   document.getElementById("vSub").textContent = cur.sub;
-  const r = document.getElementById("risk");
-  r.textContent = cur.risk; r.style.color = cur.riskColor;
-  document.getElementById("question").textContent = cur.question;
-  document.getElementById("reading").textContent = cur.reading;
-  document.getElementById("actions").innerHTML = cur.actions.map(a => `<li>${a}</li>`).join("");
-  document.getElementById("answer").classList.remove("show");
-  document.getElementById("ansBtn").hidden = false;
 }
 
 async function openView() {
@@ -612,22 +526,7 @@ function openCustom() {
   const top = +document.getElementById("sTop").value;
   const mid = +document.getElementById("sMid").value;
   const bot = +document.getElementById("sBot").value;
-  let reading = "設定した温度の分布を色で表示しています。どの高さが熱く、どの高さが低いかを確かめてください。この表示から危険度や進入の可否は判定しません。";
-  if (top < mid || mid < bot) {
-    reading += "なお、下の方が上より熱い設定になっています。上ほど熱いという通常の状態とは違う条件です。";
-  }
-  cur = {
-    title: "自分で設定",
-    sub: `上層${top}℃ / 中層${mid}℃ / 下層${bot}℃`,
-    top, mid, bot, risk: "設定値", riskColor: "var(--cyan)",
-    question: "設定した温度で、画面の色がどう変わるか見てみましょう。スマホを上下に傾けると、見える高さが変わります。",
-    reading,
-    actions: [
-      "熱い所と低い所の境目が、どの高さにあるかに注目する",
-      "配色を切り替えて、同じ温度でも見え方が変わることを確かめる",
-      "色が付き始める温度は機種によって違う。自分の隊の機種の表示も確かめておく"
-    ]
-  };
+  cur = { title: "自分で設定", sub: `上層${top}℃ / 中層${mid}℃ / 下層${bot}℃`, top, mid, bot };
   openView();
 }
 
@@ -653,11 +552,6 @@ function nextPalette() {
   buildLut();
 }
 
-function showAnswer() {
-  document.getElementById("answer").classList.add("show");
-  document.getElementById("ansBtn").hidden = true;
-}
-
 function switchTab(t) {
   document.getElementById("tabPreset").classList.toggle("on", t === "preset");
   document.getElementById("tabCustom").classList.toggle("on", t === "custom");
@@ -680,7 +574,7 @@ function buildHome() {
     const c = [p.top, p.mid, p.bot].map(t => stops(TIC_STOPS, t).map(v => v | 0).join(","));
     return `<button class="card" onclick="openPattern(${i})">
       <div class="row"><span class="chip" style="color:var(--cyan)">パターン ${String(i + 1).padStart(2, "0")}</span>
-      <span class="chip" style="color:${p.riskColor}">${p.risk}</span></div>
+      <span class="temps">上${p.top}℃・中${p.mid}℃・下${p.bot}℃</span></div>
       <h3>${p.title}</h3><p>${p.desc}</p>
       <div class="bar" style="background:linear-gradient(90deg,rgb(${c[2]}),rgb(${c[1]}),rgb(${c[0]}))"></div>
     </button>`;
