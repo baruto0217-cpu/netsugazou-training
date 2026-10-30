@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1a">
+<title>熱画像判読トレーニング</title>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --panel: rgba(18, 22, 34, 0.86);
+    --glass: rgba(255, 255, 255, 0.10);
+    --line: rgba(255, 255, 255, 0.16);
+    --text: #f4f6fb;
+    --sub: #b6bdcc;
+    --accent: #ffb547;
+    --cyan: #6fe3ff;
+    --low: #46d39a;
+    --mid: #ffc247;
+    --high: #ff5a4f;
+    --bd: #c08bff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-text-size-adjust: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+  }
+  @keyframes ember {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .backdrop {
+    position: fixed; inset: 0;
+    background: linear-gradient(-45deg, #0b0f1a, #2a1036, #6a1a2a, #b4471a, #1a2a4a);
+    background-size: 400% 400%;
+    animation: ember 16s ease infinite;
+  }
+  button, input { font: inherit; color: inherit; touch-action: manipulation; }
+  button { cursor: pointer; border: none; background: none; }
+
+  .app {
+    position: relative;
+    width: 100%; max-width: 480px; height: 100dvh;
+    margin: 0 auto; overflow: hidden;
+    background: rgba(5, 7, 14, 0.45);
+    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  }
+  @media (min-width: 700px) {
+    .app { height: min(900px, 96dvh); margin-top: 2dvh; border-radius: 24px; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  }
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    transition: transform .3s ease-out;
+  }
+  #view { background: #05070e; transform: translateX(100%); z-index: 2; }
+  #view.open { transform: translateX(0); }
+
+  /* ===== ホーム ===== */
+  .hero { text-align: center; margin: 8px 0 14px; }
+  .hero .icon {
+    width: 64px; height: 64px; margin: 0 auto 8px;
+    border-radius: 18px; display: grid; place-items: center;
+    background: var(--glass); border: 1px solid var(--line);
+    font-size: 34px;
+  }
+  .hero h1 { font-size: 24px; font-weight: 900; letter-spacing: .04em; }
+  .hero p { font-size: 13px; color: var(--sub); margin-top: 4px; }
+
+  .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(0,0,0,.3); border: 1px solid var(--line); margin-bottom: 12px; }
+  .tabs button { flex: 1; padding: 10px 0; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--sub); }
+  .tabs button.on { background: rgba(255,255,255,.2); color: var(--text); }
+
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .card {
+    text-align: left; width: 100%;
+    padding: 14px 16px; border-radius: 18px;
+    background: var(--glass); border: 1px solid var(--line);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    transition: transform .15s;
+  }
+  .card:active { transform: scale(.97); }
+  .card .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .chip { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; border: 1px solid currentColor; }
+  .card h3 { font-size: 18px; font-weight: 800; margin-top: 8px; }
+  .card p { font-size: 13px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+  .card .bar { height: 6px; border-radius: 3px; margin-top: 10px; }
+
+  .custom { padding: 16px; border-radius: 18px; background: var(--glass); border: 1px solid var(--line); }
+  .custom h3 { font-size: 16px; margin-bottom: 12px; }
+  .slider { margin-bottom: 14px; }
+  .slider .lab { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .slider .lab span:last-child { font-family: ui-monospace, Menlo, monospace; color: var(--cyan); }
+  input[type=range] { width: 100%; height: 28px; }
+  .primary {
+    width: 100%; padding: 14px; border-radius: 14px;
+    background: linear-gradient(90deg, #ff8a3d, #e0364a);
+    font-size: 16px; font-weight: 800; color: #fff;
+  }
+  .primary:active { transform: scale(.98); }
+  .ghost {
+    width: 100%; padding: 12px; border-radius: 14px; margin-top: 12px;
+    background: rgba(0,0,0,.3); border: 1px solid var(--line);
+    font-size: 14px; font-weight: 700;
+  }
+  .foot { font-size: 11px; color: var(--sub); text-align: center; margin-top: 14px; line-height: 1.6; }
+
+  /* ===== 熱画像画面 ===== */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .btn {
+    padding: 9px 12px; border-radius: 12px;
+    background: #182033; border: 1px solid #2a3550;
+    font-size: 13px; font-weight: 700; white-space: nowrap;
+  }
+  .btn:active { transform: scale(.96); }
+  .btn.on { background: #3a2a10; border-color: var(--accent); color: var(--accent); }
+  .ttl { text-align: center; min-width: 0; }
+  .ttl h2 { font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ttl span { font-size: 11px; color: var(--sub); }
+
+  .monitor {
+    position: relative; margin-top: 10px;
+    flex: 1 0 auto; min-height: 340px; height: 48dvh;
+    border-radius: 18px; overflow: hidden;
+    background: #000; border: 2px solid #2a3550;
+  }
+  #thermal { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: absolute; inset: 0; pointer-events: none; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; }
+  .hud .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+  .tag { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,.6); border: 1px solid rgba(255,181,71,.4); color: var(--accent); }
+  .live::before { content: "●"; color: #ff4a4a; margin-right: 4px; animation: blink 1.2s infinite; }
+  .live.paused::before { content: "■"; color: var(--cyan); animation: none; }
+  @keyframes blink { 50% { opacity: .2; } }
+  .notice { align-self: center; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(0,0,0,.65); color: #ffd9d9; border: 1px solid rgba(255,90,79,.5); }
+  .layers { position: absolute; right: 10px; top: 44px; bottom: 34px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; }
+  .layer { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,.62); border: 1px solid rgba(255,255,255,.25); text-align: right; line-height: 1.35; }
+  .layer b { display: block; font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
+  .cross { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; opacity: .5; }
+  .cross::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: #ff4a4a; border-radius: 50%; }
+  .camerr { margin-top: 8px; font-size: 12px; color: #ffe2a8; background: #2a2010; border: 1px solid rgba(255,181,71,.4); padding: 6px 10px; border-radius: 10px; display: none; }
+
+  .scale { margin-top: 8px; }
+  #scaleBar { height: 14px; border-radius: 7px; border: 1px solid #2a3550; }
+  .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--sub); margin-top: 3px; font-family: ui-monospace, Menlo, monospace; }
+
+  .tools { display: flex; gap: 6px; margin-top: 10px; }
+  .tools .btn { flex: 1; text-align: center; padding: 10px 4px; }
+  .manual { display: none; margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: #11182a; border: 1px solid #2a3550; font-size: 13px; }
+  .manual.show { display: block; }
+
+  .qa { margin-top: 12px; padding: 14px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); }
+  .qa .head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .qa .head span:first-child { font-size: 14px; font-weight: 800; color: var(--cyan); }
+  .question { font-size: 15px; line-height: 1.7; margin-top: 10px; }
+  .answer { display: none; margin-top: 12px; }
+  .answer.show { display: block; }
+  .answer h4 { font-size: 14px; color: var(--accent); margin: 10px 0 4px; }
+  .answer p, .answer li { font-size: 14px; line-height: 1.7; color: #e3e7f0; }
+  .answer ul { padding-left: 1.2em; }
+  .answer li { margin-bottom: 2px; }
+  .answer .note { font-size: 12px; color: var(--sub); margin-top: 12px; line-height: 1.6; }
+
+  /* ===== 注意事項 ===== */
+  .sheet { position: absolute; inset: 0; z-index: 5; background: rgba(0,0,0,.6); display: none; align-items: flex-end; }
+  .sheet.show { display: flex; }
+  .sheet .body { width: 100%; max-height: 85%; overflow-y: auto; padding: 18px 18px max(18px, env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; background: #121828; border-top: 1px solid var(--line); }
+  .sheet h3 { font-size: 18px; margin-bottom: 10px; }
+  .sheet li { font-size: 14px; line-height: 1.7; margin: 0 0 8px 1.2em; }
+</style>
+</head>
+<body>
+<div class="backdrop"></div>
+<video id="video" autoplay playsinline muted hidden></video>
+
+<div class="app">
+
+  <!-- ========== ホーム ========== -->
+  <section id="home" class="screen">
+    <div class="hero">
+      <div class="icon">🔥</div>
+      <h1>熱画像判読トレーニング</h1>
+      <p>スマホのカメラで体験する 疑似TIC（熱画像直視装置）</p>
+    </div>
+
+    <div class="tabs">
+      <button id="tabPreset" class="on" onclick="switchTab('preset')">想定パターン</button>
+      <button id="tabCustom" onclick="switchTab('custom')">温度を自分で設定</button>
+    </div>
+
+    <div id="presetPane" class="list"></div>
+
+    <div id="customPane" class="custom" hidden>
+      <h3>🎚 各層の想定温度</h3>
+      <div class="slider">
+        <div class="lab"><span style="color:var(--high)">上層（天井付近）</span><span id="vTop">350℃</span></div>
+        <input type="range" id="sTop" min="20" max="700" value="350" oninput="showSlider()">
+      </div>
+      <div class="slider">
+        <div class="lab"><span style="color:var(--mid)">中層（目線の高さ）</span><span id="vMid">120℃</span></div>
+        <input type="range" id="sMid" min="20" max="700" value="120" oninput="showSlider()">
+      </div>
+      <div class="slider">
+        <div class="lab"><span style="color:var(--low)">下層（床付近）</span><span id="vBot">30℃</span></div>
+        <input type="range" id="sBot" min="20" max="700" value="30" oninput="showSlider()">
+      </div>
+      <button class="primary" onclick="openCustom()">▶ この温度で表示する</button>
+    </div>
+
+    <button class="ghost" onclick="toggleSheet(true)">📘 TICを使うときの注意</button>
+
+    <p class="foot">※ 熱画像の見え方を学ぶための疑似表示です。<br>カメラ映像の「明るさ」に想定温度をかけ合わせて色を付けています。<br>実際の温度は測っていません。</p>
+  </section>
+
+  <!-- ========== 熱画像画面 ========== -->
+  <section id="view" class="screen">
+    <div class="topbar">
+      <button class="btn" onclick="closeView()">← 戻る</button>
+      <div class="ttl"><h2 id="vTitle">—</h2><span id="vSub">—</span></div>
+      <button class="btn" id="palBtn" onclick="nextPalette()">🎨 <span id="palName">TIC風</span></button>
+    </div>
+
+    <div class="monitor">
+      <canvas id="thermal"></canvas>
+      <div class="hud">
+        <div class="top">
+          <span class="tag live" id="liveTag">TIC</span>
+          <span class="tag" id="maxTag">設定の最高 ---℃</span>
+        </div>
+        <span class="notice">疑似表示・実測ではありません（白い物・照明・窓は熱く見えます）</span>
+      </div>
+      <div class="layers">
+        <div class="layer">画面上部<b id="tTop">--℃</b></div>
+        <div class="layer">画面中央<b id="tMid">--℃</b></div>
+        <div class="layer">画面下部<b id="tBot">--℃</b></div>
+      </div>
+      <div class="cross"></div>
+    </div>
+    <div class="camerr" id="camErr"></div>
+
+    <div class="scale">
+      <div id="scaleBar"></div>
+      <div class="ticks"><span>20℃</span><span>250℃</span><span>450℃</span><span>650℃〜</span></div>
+    </div>
+
+    <div class="tools">
+      <button class="btn" id="pauseBtn" onclick="togglePause()">⏸ 一時停止</button>
+      <button class="btn" onclick="resetBase()">📐 今の向きを基準</button>
+      <button class="btn" id="tiltBtn" onclick="toggleTilt()">📱 傾き連動 ON</button>
+    </div>
+    <div class="manual" id="manual">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>視点の上下（手動）</span><span id="manualVal">0</span></div>
+      <input type="range" id="manualRange" min="-60" max="60" value="0" oninput="setManual()">
+    </div>
+
+    <div class="qa">
+      <div class="head"><span>🔎 判読してみよう</span><span class="chip" id="risk">—</span></div>
+      <p class="question" id="question">—</p>
+      <button class="primary" id="ansBtn" style="margin-top:12px" onclick="showAnswer()">答えを見る</button>
+      <div class="answer" id="answer">
+        <h4>読み取れること</h4>
+        <p id="reading"></p>
+        <h4>取るべき行動</h4>
+        <ul id="actions"></ul>
+        <p class="note">※ 色の説明は「TIC風」配色のときのものです。このアプリでは、カメラ映像の明るさに、高さごとに設定した温度をかけ合わせて色を付けています。白い物・照明・窓は熱く、暗い物は冷たく見えます。数値は教育用の仮定値で、火災の段階や安全かどうかを判定する基準ではありません。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 注意事項シート ========== -->
+  <div class="sheet" id="sheet" onclick="if(event.target===this)toggleSheet(false)">
+    <div class="body">
+      <h3>📘 TICを使うときの注意</h3>
+      <ul>
+        <li>TICは、物から届く赤外線を画像にして、<b>見かけの表面温度の差</b>を表します。表示された温度を、空気（煙）の温度とみなしてはいけません。</li>
+        <li>一般的な消防用TICでは、<b>窓ガラス越しには見えません</b>。光った金属などは周りの熱を<b>反射</b>して映しやすく、水滴・水の膜・湯気も画像を乱します。</li>
+        <li>色が付き始める温度や色の付き方は、<b>機種や表示モードによって違います</b>。このアプリの配色はこの教材独自のものです。自分の隊の機種の表示を覚えておきます。</li>
+        <li>TICだけで判断しません。<b>煙の色や動き・無線の情報</b>などと合わせて判断します。熱さを感じなくても安全とは限りません。</li>
+        <li>TICは手で探す検索の<b>代わりではなく補助</b>です。壁伝いの検索、隊員どうしの連携、空気残量の管理、退路の確認は続けます。</li>
+        <li>このアプリは見え方を学ぶための<b>疑似表示</b>です。カメラ映像の明るさに、高さごとに設定した温度をかけ合わせているため、白い物・照明・窓は熱く見えます。温度は<b>教育用の仮定値</b>で、実測ではなく、火災の段階や安全かどうかを判定する基準でもありません。</li>
+      </ul>
+      <button class="primary" style="margin-top:8px" onclick="toggleSheet(false)">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="proc" hidden></canvas>
+<canvas id="out" hidden></canvas>
+
+<script>
+// ===== 想定パターン =====
+const PATTERNS = [
+  {
+    title: "初期の火災",
+    sub: "熱が天井付近にたまり始めた",
+    desc: "天井付近だけが熱い。目線から下はまだ低温。",
+    top: 200, mid: 50, bot: 25,
+    risk: "熱は上部のみ", riskColor: "var(--low)",
+    question: "室内に進入してTICで見た画像です。熱い所はどの高さにありますか？この画像だけで進入・検索を決めてよいですか？",
+    reading: "天井付近だけが白く明るく、目線から下は暗い灰色（低温）に見えます。熱は天井付近にとどまっている想定です。ただし、低温に見えても、隠れた火点・有毒ガス・建物の危険は否定できません。",
+    actions: [
+      "熱の面では進入を検討できる見え方。ただし画像だけで決めない",
+      "進入するかは、隊長が建物・火災の状況、注水の態勢、空気残量、退路を合わせて判断する",
+      "進入・開口・注水など状況が変わる前後に、天井・周囲・床・退路を見直す",
+      "TICに頼りきらず、壁伝いの検索と隊員どうしの連携を続ける"
+    ]
+  },
+  {
+    title: "熱い層の降下",
+    sub: "熱が目線の高さまで下りてきた",
+    desc: "天井は色付き、目線の高さも明るい。床付近はまだ低温。",
+    top: 420, mid: 200, bot: 45,
+    risk: "熱が降下", riskColor: "var(--mid)",
+    question: "進入して数分後の画像です。パターン01と比べて何が変わりましたか？どう動きますか？",
+    reading: "天井付近に色（黄〜橙）が付き、目線の高さも白く明るくなっています。熱が強くなり、下の方まで広がってきている想定です。床付近はまだ低温に見えます。",
+    actions: [
+      "姿勢を低く保つ（立ち上がらない）",
+      "火災の規模と筒先の性能に合った注水で上部の熱を下げ、効果を確かめる",
+      "効果が足りない・熱が下がり続けるなら、活動の継続を見直し、退く判断を遅らせない",
+      "開けた扉など空気の入り口を意識し、退路を確認する",
+      "隊長へ状況を報告する"
+    ]
+  },
+  {
+    title: "部屋全体が高温",
+    sub: "急激な燃え広がりの危険",
+    desc: "天井から目線まで橙〜赤。床付近まで明るい。",
+    top: 620, mid: 480, bot: 220,
+    risk: "強い熱", riskColor: "var(--high)",
+    question: "室内の画像です。床付近まで明るくなっています。この部屋は今どんな状態だと考えますか？",
+    reading: "天井から目線の高さまで橙〜赤で、床付近まで明るくなっています。部屋全体が非常に熱い想定で、フラッシュオーバーを含む急激な燃え広がりを警戒すべき状態です。ただし、画像だけで「直前」や「すでに起きている」とは確定できません。",
+    actions: [
+      "進入しない。中にいるなら退避を最優先し、遅らせない",
+      "退避中の注水が必要かは、その場の状況と隊長の指示による",
+      "退避したことと室内の状況を無線で報告する",
+      "その後の注水や戦術の切り替えは隊長が判断する"
+    ]
+  },
+  {
+    title: "閉め切った部屋の扉",
+    sub: "換気不足の火災（バックドラフトの危険）",
+    desc: "扉の上部ほど熱い。開ける前の判断。",
+    top: 180, mid: 90, bot: 35,
+    risk: "開口に注意", riskColor: "var(--bd)",
+    question: "閉め切った部屋の扉を、廊下側からTICで見た画像です。扉の上部が熱くなっています。すぐに開けてよいですか？",
+    reading: "扉の上部ほど温度が高く見え、室内の上部に熱い煙がたまっている可能性があります。ただし、TICで見えるのは扉の表面の様子で、室内の状態は確定できません。扉の材質や断熱によっては、室内が危険でも扉は熱く見えないこともあります。",
+    actions: [
+      "不用意に開けない",
+      "危険を隊長へ報告し、扉への接近と開け方を統制してもらう",
+      "ほかの参考になる所見も確認する（隙間から煙が脈打つように出入りする、窓ガラスの内側が黒く汚れている、炎が見えない など）。これらがなくても危険は否定できない",
+      "開け方・冷却・換気の方法と隊員の配置は、所属の活動要領に従い隊長が決める"
+    ]
+  }
+];
+
+// ===== 状態 =====
+let cur = PATTERNS[0];
+let palette = 0;          // 0:TIC風 1:アイアンボウ 2:白黒
+const PAL_NAMES = ["TIC風", "アイアンボウ", "白黒"];
+let stream = null;
+let rafId = null;
+let paused = false;
+let useTilt = true;
+let tiltSeen = false;
+let baseBeta = null;      // 基準にする前後の傾き
+let rawBeta = null;
+let target = 0;           // 目標の視点ずれ（-0.6〜0.6、マイナス＝上を向く）
+let shift = 0;            // なめらかにした視点ずれ
+let manual = 0;
+let lastHud = 0;
+
+// ===== 温度 → 色 =====
+function lerp(a, b, t) { return a + (b - a) * t; }
+function stops(list, x) {
+  for (let i = 1; i < list.length; i++) {
+    if (x <= list[i][0]) {
+      const [x0, c0] = list[i - 1], [x1, c1] = list[i];
+      const t = (x - x0) / (x1 - x0);
+      return [lerp(c0[0], c1[0], t), lerp(c0[1], c1[1], t), lerp(c0[2], c1[2], t)];
+    }
+  }
+  return list[list.length - 1][1];
+}
+const TIC_STOPS = [[20,[35,35,40]],[250,[235,235,235]],[251,[255,236,60]],[400,[255,150,20]],[550,[235,50,20]],[700,[170,0,10]]];
+const IRON_STOPS = [[20,[0,0,10]],[120,[60,0,110]],[250,[170,20,120]],[380,[235,80,30]],[500,[255,170,0]],[620,[255,240,120]],[700,[255,255,255]]];
+const GRAY_STOPS = [[20,[25,25,25]],[700,[255,255,255]]];
+const PALETTES = [TIC_STOPS, IRON_STOPS, GRAY_STOPS];
+
+// 256段階の色表を作っておく（20〜700℃）
+let lut = new Uint8ClampedArray(256 * 3);
+function buildLut() {
+  const s = PALETTES[palette];
+  for (let i = 0; i < 256; i++) {
+    const c = stops(s, 20 + (i / 255) * 680);
+    lut[i * 3] = c[0]; lut[i * 3 + 1] = c[1]; lut[i * 3 + 2] = c[2];
+  }
+  const bar = document.getElementById("scaleBar");
+  const g = [];
+  for (let i = 0; i <= 20; i++) {
+    const t = 20 + (i / 20) * 680;
+    const c = stops(s, t);
+    g.push(`rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0}) ${((t - 20) / 680 * 100).toFixed(1)}%`);
+  }
+  bar.style.background = `linear-gradient(90deg, ${g.join(",")})`;
+}
+
+// 縦位置（0=天井側 1=床側）の想定温度
+function layerTemp(ny) {
+  ny = Math.max(0, Math.min(1, ny));
+  if (ny <= 0.5) {
+    const t = ny / 0.5, s = t * t * (3 - 2 * t);
+    return lerp(cur.top, cur.mid, s);
+  }
+  const t = (ny - 0.5) / 0.5, s = t * t * (3 - 2 * t);
+  return lerp(cur.mid, cur.bot, s);
+}
+
+// ===== 傾きセンサー =====
+function onOrient(e) {
+  if (e.beta == null) return;
+  tiltSeen = true;
+  rawBeta = e.beta;
+  if (baseBeta == null) baseBeta = e.beta;
+  // 背面カメラを上へ向ける（上端を手前に倒す）とβが増える → 天井側を見る
+  let d = (e.beta - baseBeta) / 90;
+  target = Math.max(-0.6, Math.min(0.6, -d));
+}
+function startOrient() {
+  if (typeof DeviceOrientationEvent === "undefined") return Promise.resolve();
+  if (typeof DeviceOrientationEvent.requestPermission === "function") {
+    return DeviceOrientationEvent.requestPermission()
+      .then(s => { if (s === "granted") window.addEventListener("deviceorientation", onOrient); })
+      .catch(() => {});
+  }
+  window.addEventListener("deviceorientation", onOrient);
+  return Promise.resolve();
+}
+function stopOrient() { window.removeEventListener("deviceorientation", onOrient); }
+function resetBase() {
+  if (rawBeta != null) baseBeta = rawBeta;
+  manual = 0;
+  document.getElementById("manualRange").value = 0;
+  setManual();
+}
+function toggleTilt() {
+  useTilt = !useTilt;
+  document.getElementById("tiltBtn").textContent = useTilt ? "📱 傾き連動 ON" : "📱 傾き連動 OFF";
+  document.getElementById("tiltBtn").classList.toggle("on", !useTilt);
+  updateManualVisibility();
+}
+function updateManualVisibility() {
+  document.getElementById("manual").classList.toggle("show", !useTilt || !tiltSeen);
+}
+function setManual() {
+  manual = Number(document.getElementById("manualRange").value) / 100;
+  document.getElementById("manualVal").textContent =
+    manual === 0 ? "0" : (manual < 0 ? "上を見る " : "下を見る ") + Math.abs(Math.round(manual * 100));
+}
+
+// ===== カメラ =====
+async function startCamera() {
+  const err = document.getElementById("camErr");
+  err.style.display = "none";
+  if (stream) return;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    const v = document.getElementById("video");
+    v.srcObject = stream;
+    await v.play();
+  } catch (e) {
+    stream = null;
+    err.textContent = "カメラが使えないため、見本の映像で表示しています。カメラを使うにはブラウザでカメラを許可してください。";
+    err.style.display = "block";
+  }
+}
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+
+// カメラが使えないときの見本の映像（部屋の中のような明暗）
+function drawSample(ctx, w, h, time) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#c8c8c8"); g.addColorStop(0.5, "#777"); g.addColorStop(1, "#333");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#222"; ctx.fillRect(w * 0.08, h * 0.25, w * 0.22, h * 0.75);   // 扉
+  ctx.fillStyle = "#eee"; ctx.fillRect(w * 0.6, h * 0.18, w * 0.3, h * 0.22);     // 窓
+  ctx.fillStyle = "#555"; ctx.fillRect(w * 0.45, h * 0.62, w * 0.45, h * 0.2);    // 家具
+  const x = w * (0.5 + 0.08 * Math.sin(time / 1500));
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(x, h * 0.45, h * 0.06, 0, Math.PI * 2); ctx.fill();    // 明るい物
+}
+
+// ===== 描画 =====
+function render(time) {
+  rafId = requestAnimationFrame(render);
+  const canvas = document.getElementById("thermal");
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = Math.round(rect.width * dpr), H = Math.round(rect.height * dpr);
+  if (!W || !H) return;
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+
+  // 視点のずれをなめらかに
+  const goal = (useTilt && tiltSeen ? target : 0) + manual;
+  shift += (Math.max(-0.7, Math.min(0.7, goal)) - shift) * 0.15;
+
+  if (paused) { updateHud(time); return; }
+
+  // 低い解像度で処理（本物のTICも粗い）
+  const pw = 160, ph = Math.max(1, Math.round(160 * H / W));
+  const proc = document.getElementById("proc");
+  if (proc.width !== pw || proc.height !== ph) { proc.width = pw; proc.height = ph; }
+  const pctx = proc.getContext("2d", { willReadFrequently: true });
+  const v = document.getElementById("video");
+  if (stream && v.readyState >= 2 && v.videoWidth) {
+    // 画面の縦横比に合わせて中央を切り出す
+    const va = v.videoWidth / v.videoHeight, ca = pw / ph;
+    let sw = v.videoWidth, sh = v.videoHeight, sx = 0, sy = 0;
+    if (va > ca) { sw = sh * ca; sx = (v.videoWidth - sw) / 2; }
+    else { sh = sw / ca; sy = (v.videoHeight - sh) / 2; }
+    pctx.drawImage(v, sx, sy, sw, sh, 0, 0, pw, ph);
+  } else {
+    drawSample(pctx, pw, ph, time || 0);
+  }
+
+  const img = pctx.getImageData(0, 0, pw, ph);
+  const d = img.data;
+  for (let y = 0; y < ph; y++) {
+    const base = layerTemp(y / ph + shift);
+    for (let x = 0; x < pw; x++) {
+      const i = (y * pw + x) * 4;
+      const luma = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) / 255;
+      // 明るい所ほど熱く、暗い所ほど冷たく見せる
+      const temp = 20 + (base - 20) * (0.45 + luma * 0.9);
+      const k = Math.max(0, Math.min(255, Math.round((temp - 20) / 680 * 255))) * 3;
+      d[i] = lut[k]; d[i + 1] = lut[k + 1]; d[i + 2] = lut[k + 2]; d[i + 3] = 255;
+    }
+  }
+  const out = document.getElementById("out");
+  if (out.width !== pw || out.height !== ph) { out.width = pw; out.height = ph; }
+  out.getContext("2d").putImageData(img, 0, 0);
+
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(out, 0, 0, W, H);
+
+  // 3層の目安線
+  ctx.strokeStyle = "rgba(255,255,255,.2)";
+  ctx.setLineDash([4 * dpr, 6 * dpr]);
+  ctx.lineWidth = dpr;
+  [1 / 3, 2 / 3].forEach(r => { ctx.beginPath(); ctx.moveTo(0, H * r); ctx.lineTo(W, H * r); ctx.stroke(); });
+  ctx.setLineDash([]);
+
+  updateHud(time);
+}
+
+function updateHud(time) {
+  if (time - lastHud < 200) return;
+  lastHud = time;
+  const t = [layerTemp(1 / 6 + shift), layerTemp(0.5 + shift), layerTemp(5 / 6 + shift)].map(Math.round);
+  document.getElementById("tTop").textContent = "設定 " + t[0] + "℃";
+  document.getElementById("tMid").textContent = "設定 " + t[1] + "℃";
+  document.getElementById("tBot").textContent = "設定 " + t[2] + "℃";
+  const mx = Math.round(Math.max(layerTemp(shift), layerTemp(0.5 + shift), layerTemp(1 + shift)));
+  document.getElementById("maxTag").textContent = "設定の最高 " + mx + "℃";
+}
+
+// ===== 画面の切り替え =====
+function fillView() {
+  document.getElementById("vTitle").textContent = cur.title;
+  document.getElementById("vSub").textContent = cur.sub;
+  const r = document.getElementById("risk");
+  r.textContent = cur.risk; r.style.color = cur.riskColor;
+  document.getElementById("question").textContent = cur.question;
+  document.getElementById("reading").textContent = cur.reading;
+  document.getElementById("actions").innerHTML = cur.actions.map(a => `<li>${a}</li>`).join("");
+  document.getElementById("answer").classList.remove("show");
+  document.getElementById("ansBtn").hidden = false;
+}
+
+async function openView() {
+  fillView();
+  paused = false;
+  document.getElementById("pauseBtn").textContent = "⏸ 一時停止";
+  document.getElementById("pauseBtn").classList.remove("on");
+  document.getElementById("liveTag").classList.remove("paused");
+  baseBeta = null; target = 0; shift = 0;
+  document.getElementById("view").classList.add("open");
+  document.getElementById("view").scrollTop = 0;
+  // iPhoneの許可確認はタップ直後に出す必要があるため、傾きとカメラを同時に始める
+  await Promise.all([startOrient(), startCamera()]);
+  setTimeout(updateManualVisibility, 1200);
+  updateManualVisibility();
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(render);
+}
+
+function openPattern(i) { cur = PATTERNS[i]; openView(); }
+
+function openCustom() {
+  const top = +document.getElementById("sTop").value;
+  const mid = +document.getElementById("sMid").value;
+  const bot = +document.getElementById("sBot").value;
+  let reading = "設定した温度の分布を色で表示しています。どの高さが熱く、どの高さが低いかを確かめてください。この表示から危険度や進入の可否は判定しません。";
+  if (top < mid || mid < bot) {
+    reading += "なお、下の方が上より熱い設定になっています。上ほど熱いという通常の状態とは違う条件です。";
+  }
+  cur = {
+    title: "自分で設定",
+    sub: `上層${top}℃ / 中層${mid}℃ / 下層${bot}℃`,
+    top, mid, bot, risk: "設定値", riskColor: "var(--cyan)",
+    question: "設定した温度で、画面の色がどう変わるか見てみましょう。スマホを上下に傾けると、見える高さが変わります。",
+    reading,
+    actions: [
+      "熱い所と低い所の境目が、どの高さにあるかに注目する",
+      "配色を切り替えて、同じ温度でも見え方が変わることを確かめる",
+      "色が付き始める温度は機種によって違う。自分の隊の機種の表示も確かめておく"
+    ]
+  };
+  openView();
+}
+
+function closeView() {
+  document.getElementById("view").classList.remove("open");
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  stopCamera();
+  stopOrient();
+}
+
+function togglePause() {
+  paused = !paused;
+  const b = document.getElementById("pauseBtn");
+  b.textContent = paused ? "▶ 再開" : "⏸ 一時停止";
+  b.classList.toggle("on", paused);
+  document.getElementById("liveTag").classList.toggle("paused", paused);
+}
+
+function nextPalette() {
+  palette = (palette + 1) % PALETTES.length;
+  document.getElementById("palName").textContent = PAL_NAMES[palette];
+  buildLut();
+}
+
+function showAnswer() {
+  document.getElementById("answer").classList.add("show");
+  document.getElementById("ansBtn").hidden = true;
+}
+
+function switchTab(t) {
+  document.getElementById("tabPreset").classList.toggle("on", t === "preset");
+  document.getElementById("tabCustom").classList.toggle("on", t === "custom");
+  document.getElementById("presetPane").hidden = t !== "preset";
+  document.getElementById("customPane").hidden = t !== "custom";
+}
+
+function showSlider() {
+  ["Top", "Mid", "Bot"].forEach(k => {
+    document.getElementById("v" + k).textContent = document.getElementById("s" + k).value + "℃";
+  });
+}
+
+function toggleSheet(show) { document.getElementById("sheet").classList.toggle("show", show); }
+
+// ===== はじめに =====
+function buildHome() {
+  const pane = document.getElementById("presetPane");
+  pane.innerHTML = PATTERNS.map((p, i) => {
+    const c = [p.top, p.mid, p.bot].map(t => stops(TIC_STOPS, t).map(v => v | 0).join(","));
+    return `<button class="card" onclick="openPattern(${i})">
+      <div class="row"><span class="chip" style="color:var(--cyan)">パターン ${String(i + 1).padStart(2, "0")}</span>
+      <span class="chip" style="color:${p.riskColor}">${p.risk}</span></div>
+      <h3>${p.title}</h3><p>${p.desc}</p>
+      <div class="bar" style="background:linear-gradient(90deg,rgb(${c[2]}),rgb(${c[1]}),rgb(${c[0]}))"></div>
+    </button>`;
+  }).join("");
+}
+
+document.addEventListener("visibilitychange", () => {
+  // 画面を離れたらカメラを止め、戻ったら再開する
+  if (!document.getElementById("view").classList.contains("open")) return;
+  if (document.hidden) stopCamera(); else startCamera();
+});
+
+buildHome();
+buildLut();
+setManual();
+</script>
+</body>
+</html>
