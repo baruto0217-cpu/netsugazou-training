@@ -128,33 +128,35 @@
   .ttl h2 { font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ttl span { font-size: 11px; color: var(--sub); }
 
+  /* 機器の液晶画面のような枠 */
   .monitor {
     position: relative; margin-top: 10px;
-    flex: 1 0 auto; min-height: 360px; height: 64dvh;
-    border-radius: 18px; overflow: hidden;
-    background: #000; border: 2px solid #2a3550;
+    flex: 1 0 auto; min-height: 380px; height: 66dvh;
+    padding: 14px; border-radius: 30px;
+    background: linear-gradient(160deg, #2b2e33, #141619 60%, #0c0d0f);
+    box-shadow: inset 0 2px 3px rgba(255,255,255,.08), inset 0 -3px 6px rgba(0,0,0,.6), 0 10px 30px rgba(0,0,0,.6);
   }
+  .lcd { position: relative; width: 100%; height: 100%; border-radius: 6px; overflow: hidden; background: #000; border: 3px solid #050505; }
   #thermal { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  .hud { position: absolute; inset: 0; pointer-events: none; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; }
-  .hud .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
-  .tag { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,.6); border: 1px solid rgba(255,181,71,.4); color: var(--accent); }
-  .live::before { content: "●"; color: #ff4a4a; margin-right: 4px; animation: blink 1.2s infinite; }
-  .live.paused::before { content: "■"; color: var(--cyan); animation: none; }
-  @keyframes blink { 50% { opacity: .2; } }
-  .notice { align-self: center; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: rgba(0,0,0,.65); color: #ffd9d9; border: 1px solid rgba(255,90,79,.5); }
-  .layers { position: absolute; right: 10px; top: 44px; bottom: 34px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; }
-  .layer { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(0,0,0,.62); border: 1px solid rgba(255,255,255,.25); text-align: right; line-height: 1.35; }
-  .layer b { display: block; font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
-  .cross { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; opacity: .5; }
-  .cross::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: #ff4a4a; border-radius: 50%; }
+  .notice { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: max-content; max-width: 92%; text-align: center; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.6); color: #ffd9d9; pointer-events: none; }
+  .paused-tag { position: absolute; top: 28px; left: 8px; display: none; font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 800; color: #39ff6a; background: #000; padding: 2px 6px; border: 1px solid #39ff6a; }
+  .paused-tag.show { display: block; }
+  /* 右端の縦の温度目盛り */
+  .vscale { position: absolute; right: 8px; top: 34px; bottom: 64px; width: 54px; pointer-events: none; }
+  .vscale .bar { position: absolute; right: 0; top: 0; bottom: 0; width: 12px; border: 2px solid #000; outline: 1px solid #39ff6a; }
+  .vscale .tick { position: absolute; right: 18px; transform: translateY(50%); font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 800; color: #39ff6a; background: #000; padding: 0 3px; border: 1px solid #1d6b33; line-height: 1.3; }
+  .vscale .mark { position: absolute; right: 14px; width: 0; height: 0; transform: translateY(50%); border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-right: 8px solid #39ff6a; transition: bottom .2s; }
+  /* 中央の測る位置と右下の数値 */
+  .spot { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border: 2px solid #39ff6a; box-shadow: 0 0 0 1px #000; pointer-events: none; }
+  .readout { position: absolute; right: 8px; bottom: 8px; padding: 2px 8px 4px; background: #000; border: 1px solid #1d6b33; color: #39ff6a; font-family: ui-monospace, Menlo, monospace; text-align: right; pointer-events: none; }
+  .readout small { display: block; font-size: 10px; font-weight: 700; line-height: 1.2; }
+  .readout b { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+  .readout b span { font-size: 18px; }
   .camerr { margin-top: 8px; font-size: 12px; color: #ffe2a8; background: #2a2010; border: 1px solid rgba(255,181,71,.4); padding: 6px 10px; border-radius: 10px; display: none; }
 
-  .scale { margin-top: 8px; }
-  #scaleBar { height: 14px; border-radius: 7px; border: 1px solid #2a3550; }
-  .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--sub); margin-top: 3px; font-family: ui-monospace, Menlo, monospace; }
-
   .tools { display: flex; gap: 6px; margin-top: 10px; }
-  .tools .btn { flex: 1; text-align: center; padding: 10px 4px; }
+  .tools .btn { flex: 1; min-width: 0; text-align: center; padding: 10px 4px; white-space: normal; }
+  @media (max-width: 360px) { .tools .btn { font-size: 12px; } }
   .manual { display: none; margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: #11182a; border: 1px solid #2a3550; font-size: 13px; }
   .manual.show { display: block; }
 
@@ -219,27 +221,23 @@
     </div>
 
     <div class="monitor">
-      <canvas id="thermal"></canvas>
-      <div class="hud">
-        <div class="top">
-          <span class="tag live" id="liveTag">TIC</span>
-          <span class="tag" id="maxTag">設定の最高 ---℃</span>
-        </div>
+      <div class="lcd">
+        <canvas id="thermal"></canvas>
         <span class="notice">疑似表示・実測ではありません（白い物・照明・窓は熱く見えます）</span>
+        <span class="paused-tag" id="pausedTag">■ 停止中</span>
+        <div class="vscale">
+          <div class="bar" id="scaleBar"></div>
+          <span class="tick" style="bottom:19.1%">150</span>
+          <span class="tick" style="bottom:41.2%">300</span>
+          <span class="tick" style="bottom:63.2%">450</span>
+          <span class="tick" style="bottom:85.3%">600</span>
+          <span class="mark" id="scaleMark" style="bottom:0%"></span>
+        </div>
+        <div class="spot"></div>
+        <div class="readout"><small>設定</small><b id="spotTemp">---<span>℃</span></b></div>
       </div>
-      <div class="layers">
-        <div class="layer">画面上部<b id="tTop">--℃</b></div>
-        <div class="layer">画面中央<b id="tMid">--℃</b></div>
-        <div class="layer">画面下部<b id="tBot">--℃</b></div>
-      </div>
-      <div class="cross"></div>
     </div>
     <div class="camerr" id="camErr"></div>
-
-    <div class="scale">
-      <div id="scaleBar"></div>
-      <div class="ticks"><span>20℃</span><span>250℃</span><span>450℃</span><span>650℃〜</span></div>
-    </div>
 
     <div class="tools">
       <button class="btn" id="pauseBtn" onclick="togglePause()">⏸ 一時停止</button>
@@ -310,7 +308,7 @@ function stops(list, x) {
   }
   return list[list.length - 1][1];
 }
-const TIC_STOPS = [[20,[35,35,40]],[250,[235,235,235]],[251,[255,236,60]],[400,[255,150,20]],[550,[235,50,20]],[700,[170,0,10]]];
+const TIC_STOPS = [[20,[30,30,32]],[250,[225,225,225]],[251,[255,245,0]],[380,[255,190,0]],[500,[255,90,0]],[620,[225,0,0]],[700,[150,0,0]]];
 const IRON_STOPS = [[20,[0,0,10]],[120,[60,0,110]],[250,[170,20,120]],[380,[235,80,30]],[500,[255,170,0]],[620,[255,240,120]],[700,[255,255,255]]];
 const GRAY_STOPS = [[20,[25,25,25]],[700,[255,255,255]]];
 const PALETTES = [TIC_STOPS, IRON_STOPS, GRAY_STOPS];
@@ -330,7 +328,7 @@ function buildLut() {
     const c = stops(s, t);
     g.push(`rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0}) ${((t - 20) / 680 * 100).toFixed(1)}%`);
   }
-  bar.style.background = `linear-gradient(90deg, ${g.join(",")})`;
+  bar.style.background = `linear-gradient(0deg, ${g.join(",")})`;
 }
 
 // 縦位置（0=天井側 1=床側）の想定温度
@@ -476,25 +474,17 @@ function render(time) {
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(out, 0, 0, W, H);
 
-  // 3層の目安線
-  ctx.strokeStyle = "rgba(255,255,255,.2)";
-  ctx.setLineDash([4 * dpr, 6 * dpr]);
-  ctx.lineWidth = dpr;
-  [1 / 3, 2 / 3].forEach(r => { ctx.beginPath(); ctx.moveTo(0, H * r); ctx.lineTo(W, H * r); ctx.stroke(); });
-  ctx.setLineDash([]);
-
   updateHud(time);
 }
 
 function updateHud(time) {
   if (time - lastHud < 200) return;
   lastHud = time;
-  const t = [layerTemp(1 / 6 + shift), layerTemp(0.5 + shift), layerTemp(5 / 6 + shift)].map(Math.round);
-  document.getElementById("tTop").textContent = "設定 " + t[0] + "℃";
-  document.getElementById("tMid").textContent = "設定 " + t[1] + "℃";
-  document.getElementById("tBot").textContent = "設定 " + t[2] + "℃";
-  const mx = Math.round(Math.max(layerTemp(shift), layerTemp(0.5 + shift), layerTemp(1 + shift)));
-  document.getElementById("maxTag").textContent = "設定の最高 " + mx + "℃";
+  // 中央の四角の位置の設定温度
+  const t = Math.round(layerTemp(0.5 + shift));
+  document.getElementById("spotTemp").innerHTML = t + "<span>℃</span>";
+  const pos = Math.max(0, Math.min(100, (t - 20) / 680 * 100));
+  document.getElementById("scaleMark").style.bottom = pos.toFixed(1) + "%";
 }
 
 // ===== 画面の切り替え =====
@@ -508,7 +498,7 @@ async function openView() {
   paused = false;
   document.getElementById("pauseBtn").textContent = "⏸ 一時停止";
   document.getElementById("pauseBtn").classList.remove("on");
-  document.getElementById("liveTag").classList.remove("paused");
+  document.getElementById("pausedTag").classList.remove("show");
   baseBeta = null; target = 0; shift = 0;
   document.getElementById("view").classList.add("open");
   document.getElementById("view").scrollTop = 0;
@@ -543,7 +533,7 @@ function togglePause() {
   const b = document.getElementById("pauseBtn");
   b.textContent = paused ? "▶ 再開" : "⏸ 一時停止";
   b.classList.toggle("on", paused);
-  document.getElementById("liveTag").classList.toggle("paused", paused);
+  document.getElementById("pausedTag").classList.toggle("show", paused);
 }
 
 function nextPalette() {
