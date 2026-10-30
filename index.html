@@ -289,8 +289,8 @@ let rafId = null;
 let paused = false;
 let useTilt = true;
 let tiltSeen = false;
-let baseBeta = null;      // 基準にする前後の傾き
-let rawBeta = null;
+let baseElev = null;      // 基準にするカメラの角度
+let rawElev = null;
 let target = 0;           // 目標の視点ずれ（-0.6〜0.6、マイナス＝上を向く）
 let shift = 0;            // なめらかにした視点ずれ
 let manual = 0;
@@ -343,14 +343,24 @@ function layerTemp(ny) {
 }
 
 // ===== 傾きセンサー =====
+// 背面カメラが水平から何度上を向いているか（上が＋、下が−）
+// β・γの値はまっすぐ立てた付近で表し方が変わることがあるため、
+// 回転全体から「画面の向き」を求めて角度にする（W3Cの回転順 Z-X'-Y''）
+function cameraElevation(beta, gamma) {
+  const r = Math.PI / 180;
+  // 画面に垂直な向き（画面側）の、上下成分
+  const up = Math.cos(beta * r) * Math.cos((gamma || 0) * r);
+  // 背面カメラは画面と反対を向く
+  return Math.asin(Math.max(-1, Math.min(1, -up))) / r;
+}
 function onOrient(e) {
   if (e.beta == null) return;
   tiltSeen = true;
-  rawBeta = e.beta;
-  if (baseBeta == null) baseBeta = e.beta;
-  // 実機で確認した向き：背面カメラを上へ向けるとβが減る → 天井側（マイナス）を見る
-  let d = (e.beta - baseBeta) / 90;
-  target = Math.max(-0.6, Math.min(0.6, d));
+  rawElev = cameraElevation(e.beta, e.gamma);
+  if (baseElev == null) baseElev = rawElev;
+  // カメラを上へ向けるほど天井側（マイナス）を見る
+  const d = (rawElev - baseElev) / 90;
+  target = Math.max(-0.6, Math.min(0.6, -d));
 }
 function startOrient() {
   if (typeof DeviceOrientationEvent === "undefined") return Promise.resolve();
@@ -364,7 +374,7 @@ function startOrient() {
 }
 function stopOrient() { window.removeEventListener("deviceorientation", onOrient); }
 function resetBase() {
-  if (rawBeta != null) baseBeta = rawBeta;
+  if (rawElev != null) baseElev = rawElev;
   manual = 0;
   document.getElementById("manualRange").value = 0;
   setManual();
@@ -499,7 +509,7 @@ async function openView() {
   document.getElementById("pauseBtn").textContent = "⏸ 一時停止";
   document.getElementById("pauseBtn").classList.remove("on");
   document.getElementById("pausedTag").classList.remove("show");
-  baseBeta = null; target = 0; shift = 0;
+  baseElev = null; target = 0; shift = 0;
   document.getElementById("view").classList.add("open");
   document.getElementById("view").scrollTop = 0;
   // iPhoneの許可確認はタップ直後に出す必要があるため、傾きとカメラを同時に始める
