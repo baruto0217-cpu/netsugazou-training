@@ -204,6 +204,7 @@
         <div class="lab"><span style="color:var(--low)">下層（床付近）</span><span id="vBot">30℃</span></div>
         <input type="range" id="sBot" min="20" max="700" value="30" oninput="showSlider()">
       </div>
+      <p id="invWarn" style="display:none;font-size:12px;color:#ffe2a8;margin:-4px 0 12px;line-height:1.5">⚠ 下の方が上より熱い設定です。天井ほど熱い通常の状態とは違います。</p>
       <button class="primary" onclick="openCustom()">▶ この温度で表示する</button>
     </div>
 
@@ -234,7 +235,7 @@
           <span class="mark" id="scaleMark" style="bottom:0%"></span>
         </div>
         <div class="spot"></div>
-        <div class="readout"><small>設定</small><b id="spotTemp">---<span>℃</span></b></div>
+        <div class="readout"><small>疑似</small><b id="spotTemp">---<span>℃</span></b></div>
       </div>
     </div>
     <div class="camerr" id="camErr"></div>
@@ -289,12 +290,13 @@ let rafId = null;
 let paused = false;
 let useTilt = true;
 let tiltSeen = false;
-let baseElev = null;      // 基準にするカメラの角度
+let baseElev = 0;         // 基準にするカメラの角度（0＝水平・真正面＝目線の高さ）
 let rawElev = null;
 let target = 0;           // 目標の視点ずれ（-0.6〜0.6、マイナス＝上を向く）
 let shift = 0;            // なめらかにした視点ずれ
 let manual = 0;
 let lastHud = 0;
+let spotT = null;         // 中央の四角の中の温度（色の温度の平均）
 
 // ===== 温度 → 色 =====
 function lerp(a, b, t) { return a + (b - a) * t; }
@@ -357,7 +359,6 @@ function onOrient(e) {
   if (e.beta == null) return;
   tiltSeen = true;
   rawElev = cameraElevation(e.beta, e.gamma);
-  if (baseElev == null) baseElev = rawElev;
   // カメラを上へ向けるほど天井側（マイナス）を見る
   const d = (rawElev - baseElev) / 90;
   target = Math.max(-0.6, Math.min(0.6, -d));
@@ -440,11 +441,12 @@ function render(time) {
   if (!W || !H) return;
   if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
 
-  // 視点のずれをなめらかに
-  const goal = (useTilt && tiltSeen ? target : 0) + manual;
-  shift += (Math.max(-0.7, Math.min(0.7, goal)) - shift) * 0.15;
+  // 停止中は映像も数字も止める
+  if (paused) return;
 
-  if (paused) { updateHud(time); return; }
+  // 視点のずれをなめらかに（傾き連動中は手動の値を使わない）
+  const goal = useTilt && tiltSeen ? target : manual;
+  shift += (Math.max(-0.7, Math.min(0.7, goal)) - shift) * 0.15;
 
   // 低い解像度で処理（本物のTICも粗い）
   const pw = 160, ph = Math.max(1, Math.round(160 * H / W));
@@ -465,17 +467,24 @@ function render(time) {
 
   const img = pctx.getImageData(0, 0, pw, ph);
   const d = img.data;
+  // 中央の緑の四角（22px）が処理画像のどの範囲か
+  const half = Math.max(1, Math.round(11 * pw / rect.width));
+  const cx = pw >> 1, cy = ph >> 1;
+  let sum = 0, cnt = 0;
   for (let y = 0; y < ph; y++) {
     const base = layerTemp(y / ph + shift);
+    const inY = Math.abs(y - cy) < half;
     for (let x = 0; x < pw; x++) {
       const i = (y * pw + x) * 4;
       const luma = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) / 255;
       // 明るい所ほど熱く、暗い所ほど冷たく見せる
-      const temp = 20 + (base - 20) * (0.45 + luma * 0.9);
+      const temp = Math.min(700, 20 + (base - 20) * (0.45 + luma * 0.9));
+      if (inY && Math.abs(x - cx) < half) { sum += temp; cnt++; }
       const k = Math.max(0, Math.min(255, Math.round((temp - 20) / 680 * 255))) * 3;
       d[i] = lut[k]; d[i + 1] = lut[k + 1]; d[i + 2] = lut[k + 2]; d[i + 3] = 255;
     }
   }
+  if (cnt) spotT = sum / cnt;
   const out = document.getElementById("out");
   if (out.width !== pw || out.height !== ph) { out.width = pw; out.height = ph; }
   out.getContext("2d").putImageData(img, 0, 0);
@@ -490,8 +499,9 @@ function render(time) {
 function updateHud(time) {
   if (time - lastHud < 200) return;
   lastHud = time;
-  // 中央の四角の位置の設定温度
-  const t = Math.round(layerTemp(0.5 + shift));
+  // 中央の四角の中の色の温度（平均）
+  if (spotT == null) return;
+  const t = Math.round(spotT);
   document.getElementById("spotTemp").innerHTML = t + "<span>℃</span>";
   const pos = Math.max(0, Math.min(100, (t - 20) / 680 * 100));
   document.getElementById("scaleMark").style.bottom = pos.toFixed(1) + "%";
@@ -509,7 +519,9 @@ async function openView() {
   document.getElementById("pauseBtn").textContent = "⏸ 一時停止";
   document.getElementById("pauseBtn").classList.remove("on");
   document.getElementById("pausedTag").classList.remove("show");
-  baseElev = null; target = 0; shift = 0;
+  // タップ時の持ち方に左右されないよう、毎回「水平＝目線」から始める
+  baseElev = 0; target = 0; shift = 0; spotT = null; lastHud = 0;
+  document.getElementById("spotTemp").innerHTML = "---<span>℃</span>";
   document.getElementById("view").classList.add("open");
   document.getElementById("view").scrollTop = 0;
   // iPhoneの許可確認はタップ直後に出す必要があるため、傾きとカメラを同時に始める
@@ -563,6 +575,10 @@ function showSlider() {
   ["Top", "Mid", "Bot"].forEach(k => {
     document.getElementById("v" + k).textContent = document.getElementById("s" + k).value + "℃";
   });
+  const top = +document.getElementById("sTop").value;
+  const mid = +document.getElementById("sMid").value;
+  const bot = +document.getElementById("sBot").value;
+  document.getElementById("invWarn").style.display = (mid > top || bot > mid) ? "block" : "none";
 }
 
 function toggleSheet(show) { document.getElementById("sheet").classList.toggle("show", show); }
